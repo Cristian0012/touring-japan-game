@@ -103,7 +103,7 @@
 <div id="game-container" class="bg-white rounded-3xl shadow-xl max-w-2xl w-full p-8 md:p-12 space-y-8 flex flex-col items-center">
     <div id="start-screen" class="space-y-6 text-center">
         <img src="https://i.imgur.com/O7Fa5O7.jpeg" alt="Welcome to Japan" class="w-full max-w-sm mx-auto mb-4 rounded-lg shadow-md">
-        <p class="text-lg md:text-xl text-gray-600 max-w-md mx-auto">Welcome to your adventure! Learn essential Japanese phrases by making the right decisions. Hover over phrases to hear the audio.</p>
+        <p class="text-lg md:text-xl text-gray-600 max-w-md mx-auto">Welcome to your adventure! Learn essential Japanese phrases by making the right decisions.</p>
         <button id="start-button" class="mt-8 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
             Start Your Journey
         </button>
@@ -132,12 +132,6 @@
 </div>
 
 <script>
-    // Global Firebase variables
-    const __app_id = 'your-app-id';
-    const __firebase_config = '{"apiKey": "your-api-key"}';
-    const __initial_auth_token = 'your-auth-token';
-
-    // Game data
     const scenarios = [
         {
             text: "You've just landed in Tokyo and need to find your luggage. What do you say to the airport staff?",
@@ -262,11 +256,7 @@
     ];
 
     let currentScenarioIndex = 0;
-    const audioCache = new Map();
-    let isPlaying = false;
-    let audioContext = null;
-    let hoverTimeout = null;
-
+    
     // UI elements
     const startScreen = document.getElementById('start-screen');
     const gameScreen = document.getElementById('game-screen');
@@ -275,133 +265,12 @@
     const scenarioText = document.getElementById('scenario-text');
     const optionsContainer = document.getElementById('options-container');
     const feedbackText = document.getElementById('feedback-text');
-    const translationText = document.getElementById('translation-text');
     const nextButton = document.getElementById('next-button');
     const backgroundMusic = document.getElementById('background-music');
     const musicToggleButton = document.getElementById('music-toggle-button');
     const themeToggleButton = document.getElementById('theme-toggle-button');
-    backgroundMusic.volume = 0.2; // Set volume to 20%
-
-    // API settings
-    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent";
-    const API_KEY = ""; // Canvas will provide this
+    backgroundMusic.volume = 0.2;
     
-    // Polyfill for ArrayBuffer to base64
-    function arrayBufferToBase64(buffer) {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
-    }
-
-    // Function to convert PCM audio to WAV blob
-    function pcmToWav(pcmData, sampleRate) {
-        const pcm16 = new Int16Array(pcmData);
-        const buffer = new ArrayBuffer(44 + pcm16.length * 2);
-        const view = new DataView(buffer);
-
-        // WAV header
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + pcm16.length * 2, true);
-        writeString(view, 8, 'WAVE');
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true); // PCM format
-        view.setUint16(22, 1, true); // 1 channel
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true);
-        view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true); // 16 bits per sample
-        writeString(view, 36, 'data');
-        view.setUint32(40, pcm16.length * 2, true);
-
-        // Write PCM data
-        for (let i = 0; i < pcm16.length; i++) {
-            view.setInt16(44 + i * 2, pcm16[i], true);
-        }
-
-        return new Blob([view], { type: 'audio/wav' });
-
-        function writeString(view, offset, string) {
-            for (let i = 0; i < string.length; i++) {
-                view.setUint8(offset + i, string.charCodeAt(i));
-            }
-        }
-    }
-
-    // Function to fetch audio from the TTS API and cache it
-    async function fetchAudioAndCache(text, voiceName = "Kore") {
-        if (audioCache.has(text)) {
-            return audioCache.get(text);
-        }
-
-        try {
-            const payload = {
-                contents: [{
-                    parts: [{ text: text }]
-                }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: voiceName }
-                        }
-                    }
-                },
-                model: "gemini-2.5-flash-preview-tts"
-            };
-
-            const response = await fetch(API_URL + `?key=${API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error("API error:", errorData);
-                throw new Error("Failed to generate audio from API.");
-            }
-
-            const result = await response.json();
-            const part = result?.candidates?.[0]?.content?.parts?.[0];
-            const audioData = part?.inlineData?.data;
-            const mimeType = part?.inlineData?.mimeType;
-
-            if (!audioData || !mimeType) {
-                throw new Error("Invalid audio response from API.");
-            }
-
-            const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
-            const pcmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0)).buffer;
-            const wavBlob = pcmToWav(pcmData, sampleRate);
-            const audioUrl = URL.createObjectURL(wavBlob);
-
-            audioCache.set(text, audioUrl);
-            return audioUrl;
-
-        } catch (error) {
-            console.error("Error fetching or processing audio:", error);
-            // Cache a null value to prevent repeated failed requests
-            audioCache.set(text, null);
-            return null;
-        }
-    }
-
-    // Function to play audio from a URL
-    async function playAudio(url) {
-        if (isPlaying || !url) return;
-        
-        isPlaying = true;
-        const audio = new Audio(url);
-        audio.play().catch(e => console.error("Audio playback failed:", e));
-        audio.onended = () => { isPlaying = false; };
-        audio.onerror = () => { isPlaying = false; };
-    }
-
     // Fisher-Yates shuffle algorithm
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -412,7 +281,7 @@
     }
 
     // Function to render the current scenario
-    async function renderScenario() {
+    function renderScenario() {
         if (currentScenarioIndex >= scenarios.length) {
             endGame();
             return;
@@ -422,8 +291,6 @@
         scenarioText.textContent = scenario.text;
         optionsContainer.innerHTML = '';
         feedbackText.textContent = '';
-        translationText.textContent = '';
-        nextButton.classList.add('hidden');
         
         // Handle image display
         if (scenario.imageUrl) {
@@ -435,10 +302,6 @@
 
         // Shuffle the options before rendering
         const shuffledOptions = shuffleArray([...scenario.options]);
-
-        // Pre-load audio for all options in the current scenario
-        const audioPromises = shuffledOptions.map(option => fetchAudioAndCache(option.japanese));
-        await Promise.all(audioPromises);
 
         shuffledOptions.forEach(option => {
             const wrapper = document.createElement('div');
@@ -460,21 +323,6 @@
 
             button.dataset.isCorrect = option.isCorrect;
             button.dataset.translation = option.translation;
-            button.dataset.japanese = option.japanese;
-
-            // Add hover effect with a delay for audio playback
-            button.addEventListener('mouseenter', async () => {
-                hoverTimeout = setTimeout(async () => {
-                    const audioUrl = audioCache.get(option.japanese);
-                    await playAudio(audioUrl);
-                }, 200); // 200ms delay
-            });
-
-            button.addEventListener('mouseleave', () => {
-                if (hoverTimeout) {
-                    clearTimeout(hoverTimeout);
-                }
-            });
 
             // Add click event listener
             button.addEventListener('click', handleChoice);
@@ -498,7 +346,6 @@
                 if (btnWrapper.querySelector('button').dataset.isCorrect === 'true') {
                     btnWrapper.querySelector('button').classList.add('correct');
                 }
-                // Only reveal translations on a correct choice
                 const button = btnWrapper.querySelector('button');
                 const translation = button.dataset.translation;
                 let translationDisplay = btnWrapper.querySelector('.translation-display');
@@ -547,6 +394,12 @@
         gameScreen.classList.remove('hidden');
         renderScenario();
     });
+    
+    nextButton.addEventListener('click', () => {
+        currentScenarioIndex++;
+        nextButton.classList.add('hidden');
+        renderScenario();
+    });
 
     musicToggleButton.addEventListener('click', () => {
         if (backgroundMusic.paused) {
@@ -569,7 +422,6 @@
 
     // Initial render on page load
     window.onload = () => {
-        // Hide the game screen initially
         gameScreen.classList.add('hidden');
     };
 </script>
