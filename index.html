@@ -3,20 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touring Japan</title>
+    <title>Touring Japan - Language Adventure</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Base styles */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f7f3e9;
-            color: #2c3e50;
+            /* FORCED BLACK TEXT */
+            color: #000000 !important;  
             transition: background-color 0.5s ease, color 0.5s ease;
         }
         body.dark-mode {
+            /* KEEP DARK BACKGROUND FOR DARK MODE */
             background-color: #1a202c;
-            color: #e2e8f0;
+            /* TEXT WILL BE FORCED BLACK BY THE !important rule above */
         }
+        
+        /* Container and Card styles */
         .container {
             max-width: 800px;
             min-height: 100vh;
@@ -41,23 +46,11 @@
         .card:hover {
             transform: translateY(-5px);
         }
-        .button {
-            background-color: #3498db;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 9999px;
-            font-weight: 700;
-            transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
-            cursor: pointer;
-            text-align: center;
-        }
-        .button:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-        }
+
+        /* Button styles */
         .option-button {
             background-color: #e8f0f7;
-            color: #34495e;
+            color: #000000 !important; /* FORCED BLACK TEXT */
             padding: 1rem 1.5rem;
             border-radius: 0.75rem;
             font-weight: 600;
@@ -66,28 +59,48 @@
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
             border: 2px solid #3498db;
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         body.dark-mode .option-button {
             background-color: #4a5568;
-            color: #e2e8f0;
+            color: #000000 !important; /* FORCED BLACK TEXT */
             border: 2px solid #63b3ed;
         }
-        .option-button:hover {
+        .option-button:hover:not(:disabled) {
             background-color: #d1e2f3;
             transform: scale(1.03);
         }
-        body.dark-mode .option-button:hover {
+        body.dark-mode .option-button:hover:not(:disabled) {
             background-color: #5a6b81;
         }
+
+        /* State styles */
+        .option-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.7; /* Dim disabled buttons */
+            transform: none !important; 
+        }
         .correct {
-            background-color: #2ecc71;
-            color: white;
+            background-color: #2ecc71 !important;
+            color: #000000 !important; /* Keep correct text black */
+            border-color: #27ae60 !important;
             animation: pulse-correct 1s infinite;
+            opacity: 1 !important;
         }
         .incorrect {
-            background-color: #e74c3c;
-            color: white;
+            background-color: #e74c3c !important;
+            color: #000000 !important; /* Keep incorrect text black */
+            border-color: #c0392b !important;
+            opacity: 1 !important;
         }
+
+        /* Override specific Tailwind classes in HTML to force black text */
+        .dark\:text-gray-50, .dark\:text-gray-200, .dark\:text-gray-300, .dark\:text-gray-400 {
+            color: #000000 !important;
+        }
+        
         @keyframes pulse-correct {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -97,13 +110,13 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-<!-- Audio for background music -->
 <audio id="background-music" src="https://ia902808.us.archive.org/20/items/petals-on-the-water-full-version-japanese-fusion-lofi-392739/petals-on-the-water-full-version-japanese-fusion-lofi-392739.mp3" autoplay loop muted></audio>
 
-<div id="game-container" class="bg-white rounded-3xl shadow-xl max-w-2xl w-full p-8 md:p-12 space-y-8 flex flex-col items-center">
+<div id="game-container" class="bg-white rounded-3xl shadow-xl max-w-2xl w-full p-8 md:p-12 space-y-8 flex flex-col items-center card">
     <div id="start-screen" class="space-y-6 text-center">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-50">Touring Japan 🏯</h1>
         <img src="https://i.imgur.com/O7Fa5O7.jpeg" alt="Welcome to Japan" class="w-full max-w-sm mx-auto mb-4 rounded-lg shadow-md">
-        <p class="text-lg md:text-xl text-gray-600 max-w-md mx-auto">Welcome to your adventure! Learn essential Japanese phrases by making the right decisions.</p>
+        <p class="text-lg md:text-xl text-gray-900 dark:text-gray-50 max-w-md mx-auto">Welcome to your adventure! Learn essential Japanese phrases by making the right decisions. Hover over the phrases to hear the audio.</p>
         <button id="start-button" class="mt-8 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
             Start Your Journey
         </button>
@@ -111,19 +124,23 @@
 
     <div id="game-screen" class="w-full space-y-6 hidden">
         <div class="flex justify-between items-center w-full">
-            <button id="music-toggle-button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-semibold shadow-md hover:bg-gray-300 transition-colors">
+            <div id="score-display" class="text-lg font-bold text-gray-800 dark:text-gray-200">Score: 0/0</div>
+
+            <button id="music-toggle-button" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-semibold shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                 Music Off
             </button>
-            <button id="theme-toggle-button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-semibold shadow-md hover:bg-gray-300 transition-colors">
+            <button id="theme-toggle-button" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-semibold shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                 Dark Mode
             </button>
         </div>
         <img id="scenario-image" class="rounded-lg shadow-md mb-4 w-full h-auto object-cover max-h-80" alt="Scenario Image" style="display: none;">
-        <div id="scenario-text" class="text-xl md:text-2xl font-semibold text-gray-700 leading-relaxed mb-6"></div>
+        <div id="scenario-text" class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-50 leading-relaxed mb-6"></div>
+        
         <div id="options-container" class="w-full grid grid-cols-1 md:grid-cols-3 gap-6"></div>
-        <div id="feedback-area" class="mt-6 text-center">
+        
+        <div id="feedback-area" class="mt-6 text-center" aria-live="polite">
             <p id="feedback-text" class="text-lg font-bold"></p>
-            <p id="translation-text" class="text-sm mt-2 text-gray-500 italic"></p>
+            <p id="translation-text" class="text-sm mt-2 text-gray-700 italic dark:text-gray-400"></p>
         </div>
         <button id="next-button" class="mt-8 hidden bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full shadow transition duration-300">
             Continue Touring
@@ -132,131 +149,60 @@
 </div>
 
 <script>
+    // --- Game Data ---
     const scenarios = [
         {
             text: "You've just landed in Tokyo and need to find your luggage. What do you say to the airport staff?",
             imageUrl: "https://i.imgur.com/Qq6c0fj.jpeg",
             options: [
-                {
-                    japanese: "荷物はどこですか？",
-                    romaji: "Nimotsu wa doko desu ka?",
-                    translation: "Where is the baggage?",
-                    isCorrect: true
-                },
-                {
-                    japanese: "トイレはどこですか？",
-                    romaji: "Toire wa doko desu ka?",
-                    translation: "Where is the toilet?",
-                    isCorrect: false
-                },
-                {
-                    japanese: "これはいくらですか？",
-                    romaji: "Kore wa ikura desu ka?",
-                    translation: "How much is this?",
-                    isCorrect: false
-                }
+                { japanese: "荷物はどこですか？", romaji: "Nimotsu wa doko desu ka?", translation: "Where is the baggage?", isCorrect: true },
+                { japanese: "トイレはどこですか？", romaji: "Toire wa doko desu ka?", translation: "Where is the toilet?", isCorrect: false },
+                { japanese: "これはいくらですか？", romaji: "Kore wa ikura desu ka?", translation: "How much is this?", isCorrect: false }
             ],
         },
         {
             text: "You need to get to your hotel. How do you ask the taxi driver, 'Please take me to my hotel?'",
             imageUrl: "https://i.imgur.com/WjxmkKu.jpeg",
             options: [
-                {
-                    japanese: "ホテルまでお願いします。",
-                    romaji: "Hoteru made onegai shimasu.",
-                    translation: "Please take me to my hotel.",
-                    isCorrect: true
-                },
-                {
-                    japanese: "タクシー乗り場はどこですか？",
-                    romaji: "Takushii-noriba wa doko desu ka?",
-                    translation: "Where is the taxi stand?",
-                    isCorrect: false
-                },
-                {
-                    japanese: "元気ですか？",
-                    romaji: "Genki desu ka?",
-                    translation: "How are you?",
-                    isCorrect: false
-                }
+                { japanese: "ホテルまでお願いします。", romaji: "Hoteru made onegai shimasu.", translation: "Please take me to my hotel.", isCorrect: true },
+                { japanese: "タクシー乗り場はどこですか？", romaji: "Takushii-noriba wa doko desu ka?", translation: "Where is the taxi stand?", isCorrect: false },
+                { japanese: "元気ですか？", romaji: "Genki desu ka?", translation: "How are you?", isCorrect: false }
             ],
         },
         {
             text: "You arrive at your hotel. How do you tell the front desk, 'I am here to check in'?",
             imageUrl: "https://i.imgur.com/sAYoQkS.jpeg",
             options: [
-                {
-                    japanese: "チェックインをお願いします。",
-                    romaji: "Chekkuin o onegai shimasu.",
-                    translation: "I am here to check in.",
-                    isCorrect: true
-                },
-                {
-                    japanese: "お会計をお願いします。",
-                    romaji: "Okaikei o onegai shimasu.",
-                    translation: "Check, please.",
-                    isCorrect: false
-                },
-                {
-                    japanese: "トイレはどこですか？",
-                    romaji: "Toire wa doko desu ka?",
-                    translation: "Where is the toilet?",
-                    isCorrect: false
-                }
+                { japanese: "チェックインをお願いします。", romaji: "Chekkuin o onegai shimasu.", translation: "I am here to check in.", isCorrect: true },
+                { japanese: "お会計をお願いします。", romaji: "Okaikei o onegai shimasu.", translation: "Check, please.", isCorrect: false },
+                { japanese: "トイレはどこですか？", romaji: "Toire wa doko desu ka?", translation: "Where is the toilet?", isCorrect: false }
             ],
         },
         {
-            text: "You've arrived at your room, how do you say 'I am really hungry'?'",
+            text: "You've arrived at your room, how do you say 'I am really hungry'?",
             imageUrl: "https://i.imgur.com/EIidutG.png",
             options: [
-                {
-                    japanese: "お腹がすきました。",
-                    romaji: "Onaka ga sukimashita.",
-                    translation: "I'm hungry.",
-                    isCorrect: true
-                },
-                {
-                    japanese: "予約をしました。",
-                    romaji: "Yoyaku o shimashita.",
-                    translation: "I have a reservation.",
-                    isCorrect: false
-                },
-                {
-                    japanese: "チェックインをお願いします。",
-                    romaji: "Chekkuin o onegai shimasu.",
-                    translation: "I'd like to check in.",
-                    isCorrect: false
-                }
+                { japanese: "お腹がすきました。", romaji: "Onaka ga sukimashita.", translation: "I'm hungry.", isCorrect: true },
+                { japanese: "予約をしました。", romaji: "Yoyaku o shimashita.", translation: "I have a reservation.", isCorrect: false },
+                { japanese: "チェックインをお願いします。", romaji: "Chekkuin o onegai shimasu.", translation: "I'd like to check in.", isCorrect: false }
             ],
         },
         {
             text: "You arrive at a local ramen shop, how do you say, 'I would like a bowl of ramen'?",
             imageUrl: "https://i.imgur.com/8RAKAAT.jpeg",
             options: [
-                {
-                    japanese: "ラーメンをください。",
-                    romaji: "Rāmen o kudasai.",
-                    translation: "I would like a bowl of ramen.",
-                    isCorrect: true
-                },
-                {
-                    japanese: "おいしいレストランはどこですか？",
-                    romaji: "Oishii resutoran wa doko desu ka?",
-                    translation: "Where is a delicious restaurant?",
-                    isCorrect: false
-                },
-                {
-                    japanese: "お会計をお願いします。",
-                    romaji: "Okaikei o onegai shimasu.",
-                    translation: "Check, please.",
-                    isCorrect: false
-                }
+                { japanese: "ラーメンをください。", romaji: "Rāmen o kudasai.", translation: "I would like a bowl of ramen.", isCorrect: true },
+                { japanese: "おいしいレストランはどこですか？", romaji: "Oishii resutoran wa doko desu ka?", translation: "Where is a delicious restaurant?", isCorrect: false },
+                { japanese: "お会計をお願いします。", romaji: "Okaikei o onegai shimasu.", translation: "Check, please.", isCorrect: false }
             ],
         },
     ];
 
     let currentScenarioIndex = 0;
-    
+    let score = 0; // Initialize score
+    let hoverTimeout = null;
+    let japaneseVoice = null; // Cache the Japanese voice
+
     // UI elements
     const startScreen = document.getElementById('start-screen');
     const gameScreen = document.getElementById('game-screen');
@@ -265,13 +211,70 @@
     const scenarioText = document.getElementById('scenario-text');
     const optionsContainer = document.getElementById('options-container');
     const feedbackText = document.getElementById('feedback-text');
+    const translationText = document.getElementById('translation-text');
     const nextButton = document.getElementById('next-button');
     const backgroundMusic = document.getElementById('background-music');
     const musicToggleButton = document.getElementById('music-toggle-button');
     const themeToggleButton = document.getElementById('theme-toggle-button');
+    const scoreDisplay = document.getElementById('score-display'); // Cache score element
+
+    // Set initial music volume
     backgroundMusic.volume = 0.2;
-    
-    // Fisher-Yates shuffle algorithm
+
+    // --- Core Functions ---
+
+    /**
+     * Initializes and caches the best Japanese voice for TTS.
+     */
+    function setupJapaneseVoice() {
+        if (!('speechSynthesis' in window)) {
+            console.warn("Web Speech API not supported.");
+            return;
+        }
+
+        const setVoice = () => {
+            const voices = speechSynthesis.getVoices();
+            // Try to find a standard Japanese voice
+            japaneseVoice = voices.find(voice => voice.lang === 'ja-JP');
+            if (!japaneseVoice) {
+                // Fallback to the first available voice
+                japaneseVoice = voices[0];
+            }
+        };
+
+        // Voices may not be immediately loaded, so we listen for the event
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = setVoice;
+        }
+        // Call once in case voices are already loaded
+        setVoice();
+    }
+
+    /**
+     * Uses the Web Speech API to play the Japanese text.
+     */
+    function playJapaneseAudio(text) {
+        if (!('speechSynthesis' in window)) return;
+        
+        // Stop any currently speaking utterance
+        speechSynthesis.cancel(); 
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (japaneseVoice) {
+            utterance.voice = japaneseVoice;
+            utterance.lang = 'ja-JP'; // Ensure correct language setting
+        } else {
+            // Wait for a moment if the voice is still loading, or use default
+            setupJapaneseVoice(); 
+        }
+
+        utterance.rate = 0.9; // Slightly slower for comprehension
+        speechSynthesis.speak(utterance);
+    }
+
+    /**
+     * Fisher-Yates shuffle algorithm
+     */
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -280,7 +283,16 @@
         return array;
     }
 
-    // Function to render the current scenario
+    /**
+     * Updates the score display.
+     */
+    function updateScoreDisplay() {
+        scoreDisplay.textContent = `Score: ${score}/${scenarios.length}`;
+    }
+
+    /**
+     * Renders the current scenario.
+     */
     function renderScenario() {
         if (currentScenarioIndex >= scenarios.length) {
             endGame();
@@ -291,14 +303,13 @@
         scenarioText.textContent = scenario.text;
         optionsContainer.innerHTML = '';
         feedbackText.textContent = '';
+        nextButton.classList.add('hidden');
+        
+        updateScoreDisplay(); // Update score display when a new scenario loads
         
         // Handle image display
-        if (scenario.imageUrl) {
-            scenarioImage.src = scenario.imageUrl;
-            scenarioImage.style.display = 'block';
-        } else {
-            scenarioImage.style.display = 'none';
-        }
+        scenarioImage.src = scenario.imageUrl;
+        scenarioImage.style.display = scenario.imageUrl ? 'block' : 'none';
 
         // Shuffle the options before rendering
         const shuffledOptions = shuffleArray([...scenario.options]);
@@ -308,7 +319,7 @@
             wrapper.className = "flex flex-col items-center w-full";
             
             const button = document.createElement('button');
-            button.className = "option-button font-inter hover:bg-gray-200 focus:outline-none transition-all duration-300 transform active:scale-95 text-xl p-4";
+            button.className = "option-button font-inter hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none transition-all duration-300 transform active:scale-95 text-xl p-4";
             
             const japaneseText = document.createElement('span');
             japaneseText.textContent = option.japanese;
@@ -316,13 +327,32 @@
 
             const romajiText = document.createElement('span');
             romajiText.textContent = option.romaji;
-            romajiText.className = "text-base italic text-gray-500 mt-1";
+            // Set romaji text color to ensure black text (overrides light gray in dark mode)
+            romajiText.className = "text-base italic text-gray-500 dark:text-gray-300 mt-1";
 
             button.appendChild(japaneseText);
             button.appendChild(romajiText);
 
             button.dataset.isCorrect = option.isCorrect;
             button.dataset.translation = option.translation;
+            button.dataset.japanese = option.japanese;
+
+            // Add hover effect with a delay for audio playback
+            button.addEventListener('mouseenter', () => {
+                // Clear any previous hover and stop speaking
+                if (hoverTimeout) clearTimeout(hoverTimeout);
+                speechSynthesis.cancel(); 
+
+                hoverTimeout = setTimeout(() => {
+                    playJapaneseAudio(option.japanese);
+                }, 300); // 300ms delay for intentional hover
+            });
+
+            button.addEventListener('mouseleave', () => {
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                }
+            });
 
             // Add click event listener
             button.addEventListener('click', handleChoice);
@@ -336,42 +366,72 @@
         const chosenButton = event.currentTarget;
         const isCorrect = chosenButton.dataset.isCorrect === 'true';
 
-        // Check if the choice is correct
+        // Disable all buttons to prevent further clicks
+        optionsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        
+        // Remove the hover timeout to stop potential audio play
+        if (hoverTimeout) clearTimeout(hoverTimeout);
+
         if (isCorrect) {
-            feedbackText.textContent = "Correct! Congratulations, you can continue your adventure.";
-            feedbackText.className = "text-green-600 font-bold text-lg mt-4";
+            score++; // Increment score
+            updateScoreDisplay(); // Update the display
+
+            feedbackText.textContent = "Correct! 💮 You chose the right phrase. Continue your journey!";
+            feedbackText.className = "text-green-600 dark:text-green-400 font-bold text-xl mt-4";
             nextButton.classList.remove('hidden');
+            
+            // Highlight all options with their translations
             optionsContainer.childNodes.forEach(btnWrapper => {
-                btnWrapper.querySelector('button').disabled = true;
-                if (btnWrapper.querySelector('button').dataset.isCorrect === 'true') {
-                    btnWrapper.querySelector('button').classList.add('correct');
-                }
                 const button = btnWrapper.querySelector('button');
                 const translation = button.dataset.translation;
+                
+                // Add correct class to the right button
+                if (button.dataset.isCorrect === 'true') {
+                    button.classList.add('correct');
+                }
+
+                // Append the translation for review
                 let translationDisplay = btnWrapper.querySelector('.translation-display');
                 if (!translationDisplay) {
                     translationDisplay = document.createElement('p');
-                    translationDisplay.className = "translation-display text-sm mt-2 text-gray-500 italic";
+                    translationDisplay.className = "translation-display text-base mt-2 text-gray-700 dark:text-gray-200 font-semibold";
                     btnWrapper.appendChild(translationDisplay);
                 }
-                translationDisplay.textContent = translation;
+                translationDisplay.textContent = `[${translation}]`;
             });
+            
         } else {
             feedbackText.textContent = "That's not quite right. Try again.";
-            feedbackText.className = "text-red-600 font-bold text-lg mt-4";
+            feedbackText.className = "text-red-600 dark:text-red-400 font-bold text-xl mt-4";
+            
+            // Only disable the incorrect button, allowing re-attempt
+            chosenButton.disabled = true;
             chosenButton.classList.add('incorrect');
-            setTimeout(() => {
-                chosenButton.classList.remove('incorrect');
-            }, 1000);
+
+            // Re-enable other buttons, but only those that are not correct
+            optionsContainer.querySelectorAll('button').forEach(btn => {
+                if (btn !== chosenButton && !btn.classList.contains('correct')) {
+                    btn.disabled = false;
+                }
+            });
         }
     }
 
+    function nextScenario() {
+        currentScenarioIndex++;
+        renderScenario();
+    }
+
     function endGame() {
+        // Clear game screen and display completion message
         gameScreen.innerHTML = `
             <div class="space-y-6 text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Adventure Complete!</h1>
-                <p class="text-lg md:text-xl text-gray-600 max-w-md mx-auto">
-                    You've successfully completed your first journey through Japan.
+                <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-50">Adventure Complete!</h1>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-400">
+                    Your Final Score: ${score} out of ${scenarios.length}!
+                </p>
+                <p class="text-lg md:text-xl text-gray-900 dark:text-gray-50 max-w-md mx-auto">
+                    You've successfully completed your first journey through Japan and mastered essential phrases.
                     Keep practicing to become a language master!
                 </p>
                 <button id="restart-button" class="mt-8 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
@@ -379,50 +439,69 @@
                 </button>
             </div>
         `;
-        document.getElementById('restart-button').addEventListener('click', () => {
-            currentScenarioIndex = 0;
-            startScreen.classList.remove('hidden');
-            gameScreen.classList.add('hidden');
+        document.getElementById('restart-button').addEventListener('click', restartGame);
+    }
+
+    function restartGame() {
+        currentScenarioIndex = 0;
+        // Reload the page to reset the state cleanly
+        window.location.reload(); 
+    }
+
+    // --- Initialization and Event Listeners ---
+
+    function initGame() {
+        // Initialize the Japanese voice for TTS
+        setupJapaneseVoice();
+
+        // Event Listeners for Start and Navigation
+        startButton.addEventListener('click', () => {
+            backgroundMusic.muted = false;
+            backgroundMusic.play().catch(e => console.error("Music playback failed:", e));
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            renderScenario();
+        });
+
+        nextButton.addEventListener('click', nextScenario);
+
+        // Music Toggle
+        musicToggleButton.addEventListener('click', () => {
+            if (backgroundMusic.paused || backgroundMusic.muted) {
+                backgroundMusic.muted = false;
+                backgroundMusic.play();
+                musicToggleButton.textContent = "Music Off";
+            } else {
+                backgroundMusic.pause();
+                backgroundMusic.muted = true;
+                musicToggleButton.textContent = "Music On";
+            }
+        });
+        
+        // Theme Toggle
+        themeToggleButton.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const gameContainer = document.getElementById('game-container');
+            // Toggle the card class for dark mode background
+            gameContainer.classList.toggle('card'); 
+
+            if (document.body.classList.contains('dark-mode')) {
+                themeToggleButton.textContent = "Light Mode";
+            } else {
+                themeToggleButton.textContent = "Dark Mode";
+            }
         });
     }
 
-    // Event listeners
-    startButton.addEventListener('click', () => {
-        backgroundMusic.muted = false;
-        backgroundMusic.play().catch(e => console.error("Music playback failed:", e));
-        startScreen.classList.add('hidden');
-        gameScreen.classList.remove('hidden');
-        renderScenario();
-    });
-    
-    nextButton.addEventListener('click', () => {
-        currentScenarioIndex++;
-        nextButton.classList.add('hidden');
-        renderScenario();
-    });
+    // Run initialization when the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', initGame);
 
-    musicToggleButton.addEventListener('click', () => {
-        if (backgroundMusic.paused) {
-            backgroundMusic.play();
-            musicToggleButton.textContent = "Music Off";
-        } else {
-            backgroundMusic.pause();
-            musicToggleButton.textContent = "Music On";
-        }
-    });
-    
-    themeToggleButton.addEventListener('click', () => {
-        document.body.classList.toggle('dark-mode');
-        if (document.body.classList.contains('dark-mode')) {
-            themeToggleButton.textContent = "Light Mode";
-        } else {
-            themeToggleButton.textContent = "Dark Mode";
-        }
-    });
-
-    // Initial render on page load
+    // Initial check to ensure the start screen is visible on page load
     window.onload = () => {
         gameScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+        // Ensure initial score is set even if game doesn't start
+        updateScoreDisplay(); 
     };
 </script>
 
