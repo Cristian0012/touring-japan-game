@@ -3,507 +3,640 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touring Japan - Language Adventure</title>
+    <title>3D Interactive Globe</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
     <style>
-        /* Base styles */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        /* Setup for full-screen canvas and responsive design */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
         body {
+            margin: 0;
+            overflow: hidden;
             font-family: 'Inter', sans-serif;
-            background-color: #f7f3e9;
-            /* FORCED BLACK TEXT */
-            color: #000000 !important;  
-            transition: background-color 0.5s ease, color 0.5s ease;
+            background-color: #000;
         }
-        body.dark-mode {
-            /* KEEP DARK BACKGROUND FOR DARK MODE */
-            background-color: #1a202c;
-            /* TEXT WILL BE FORCED BLACK BY THE !important rule above */
+
+        #globe-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            cursor: grab;
         }
         
-        /* Container and Card styles */
-        .container {
-            max-width: 800px;
-            min-height: 100vh;
+        #globe-container.grabbing {
+            cursor: grabbing;
+        }
+
+        /* Overlay for game UI elements */
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Allows mouse/touch events to pass through to the canvas */
+        }
+        
+        /* Elements that need to be clickable must have pointer-events enabled */
+        .clickable {
+            pointer-events: auto;
+        }
+        
+        canvas {
+            touch-action: none; /* Prevents default mobile scrolling behavior */
+        }
+        
+        /* Basic animation for scene transitions */
+        .scene-image-animation {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Shake animation for incorrect answers */
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .shake {
+            animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* --- Flip Card Animation --- */
+        .flip-card {
+            background-color: transparent;
+            perspective: 1000px;
+        }
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .flip-card-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 0.5rem; /* rounded-lg */
+        }
+        .flip-card-back {
+            background-color: #2d3748; /* gray-800 */
+            color: white;
+            transform: rotateY(180deg);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 2rem;
-            text-align: center;
-        }
-        .card {
-            background: #ffffff;
-            border-radius: 1.5rem;
-            padding: 2rem;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.04);
-            transition: background-color 0.5s ease;
-        }
-        body.dark-mode .card {
-            background: #2d3748;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 5px 15px -5px rgba(0, 0, 0, 0.1);
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        /* Button styles */
-        .option-button {
-            background-color: #e8f0f7;
-            color: #000000 !important; /* FORCED BLACK TEXT */
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem;
-            font-weight: 600;
-            transition: background-color 0.3s, transform 0.2s;
-            cursor: pointer;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
-            border: 2px solid #3498db;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        body.dark-mode .option-button {
-            background-color: #4a5568;
-            color: #000000 !important; /* FORCED BLACK TEXT */
-            border: 2px solid #63b3ed;
-        }
-        .option-button:hover:not(:disabled) {
-            background-color: #d1e2f3;
-            transform: scale(1.03);
-        }
-        body.dark-mode .option-button:hover:not(:disabled) {
-            background-color: #5a6b81;
-        }
-
-        /* State styles */
-        .option-button:disabled {
-            cursor: not-allowed;
-            opacity: 0.7; /* Dim disabled buttons */
-            transform: none !important; 
-        }
-        .correct {
-            background-color: #2ecc71 !important;
-            color: #000000 !important; /* Keep correct text black */
-            border-color: #27ae60 !important;
-            animation: pulse-correct 1s infinite;
-            opacity: 1 !important;
-        }
-        .incorrect {
-            background-color: #e74c3c !important;
-            color: #000000 !important; /* Keep incorrect text black */
-            border-color: #c0392b !important;
-            opacity: 1 !important;
-        }
-
-        /* Override specific Tailwind classes in HTML to force black text */
-        .dark\:text-gray-50, .dark\:text-gray-200, .dark\:text-gray-300, .dark\:text-gray-400 {
-            color: #000000 !important;
+            padding: 1.5rem;
         }
         
-        @keyframes pulse-correct {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+        /* Pop-up animation */
+        @keyframes popup {
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
+        .animate-popup {
+            animation: popup 0.3s ease-out forwards;
+        }
+
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<body>
 
-<audio id="background-music" src="https://ia902808.us.archive.org/20/items/petals-on-the-water-full-version-japanese-fusion-lofi-392739/petals-on-the-water-full-version-japanese-fusion-lofi-392739.mp3" autoplay loop muted></audio>
+    <!-- Three.js renders the 3D scene into this container -->
+    <div id="globe-container"></div>
 
-<div id="game-container" class="bg-white rounded-3xl shadow-xl max-w-2xl w-full p-8 md:p-12 space-y-8 flex flex-col items-center card">
-    <div id="start-screen" class="space-y-6 text-center">
-        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-50">Touring Japan 🏯</h1>
-        <img src="https://i.imgur.com/O7Fa5O7.jpeg" alt="Welcome to Japan" class="w-full max-w-sm mx-auto mb-4 rounded-lg shadow-md">
-        <p class="text-lg md:text-xl text-gray-900 dark:text-gray-50 max-w-md mx-auto">Welcome to your adventure! Learn essential Japanese phrases by making the right decisions. Hover over the phrases to hear the audio.</p>
-        <button id="start-button" class="mt-8 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
-            Start Your Journey
-        </button>
+    <!-- UI Overlay for context -->
+    <div id="main-ui" class="ui-overlay p-6 flex flex-col items-center justify-start">
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-white text-shadow-lg tracking-wider">GTA</h1>
+        <p class="text-lg text-white mt-2 p-2 rounded-lg bg-black bg-opacity-50">Global Translation Adventures</p>
+        <p id="instruction-text" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-sm text-yellow-400 p-2 rounded-lg bg-black bg-opacity-50 whitespace-nowrap">
+            Drag the globe to explore and click a marker to select a destination.
+        </p>
+        <div id="location-info" class="hidden absolute bottom-16 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 p-8 rounded-2xl text-center shadow-2xl flex flex-col items-center gap-4 w-80">
+            <h2 id="location-name" class="text-5xl font-bold text-white">Location</h2>
+            <button id="start-journey-btn" class="clickable bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105">Start Your Journey</button>
+        </div>
+        <div id="loading-message" class="mt-8 p-4 bg-blue-700 rounded-xl text-white font-semibold">Loading Realistic 3D Globe...</div>
     </div>
 
-    <div id="game-screen" class="w-full space-y-6 hidden">
-        <div class="flex justify-between items-center w-full">
-            <div id="score-display" class="text-lg font-bold text-gray-800 dark:text-gray-200">Score: 0/0</div>
-
-            <button id="music-toggle-button" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-semibold shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-                Music Off
-            </button>
-            <button id="theme-toggle-button" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-semibold shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-                Dark Mode
-            </button>
-        </div>
-        <img id="scenario-image" class="rounded-lg shadow-md mb-4 w-full h-auto object-cover max-h-80" alt="Scenario Image" style="display: none;">
-        <div id="scenario-text" class="text-xl md:text-2xl font-semibold text-gray-900 dark:text-gray-50 leading-relaxed mb-6"></div>
-        
-        <div id="options-container" class="w-full grid grid-cols-1 md:grid-cols-3 gap-6"></div>
-        
-        <div id="feedback-area" class="mt-6 text-center" aria-live="polite">
-            <p id="feedback-text" class="text-lg font-bold"></p>
-            <p id="translation-text" class="text-sm mt-2 text-gray-700 italic dark:text-gray-400"></p>
-        </div>
-        <button id="next-button" class="mt-8 hidden bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full shadow transition duration-300">
-            Continue Touring
-        </button>
+    <!-- Adventure List Page -->
+    <div id="level-page" class="hidden absolute top-0 left-0 w-full h-full bg-gray-900 z-20 flex flex-col justify-center items-center text-white p-8 overflow-y-auto">
+        <h1 id="level-title" class="text-6xl font-extrabold mb-4 text-center">Welcome!</h1>
+        <p class="text-2xl mb-8">Choose your adventure below:</p>
+        <div id="adventure-list" class="w-full max-w-2xl space-y-4"></div>
+        <button id="back-to-globe-btn" class="clickable bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105 mt-12">Back to Globe</button>
     </div>
-</div>
 
-<script>
-    // --- Game Data ---
-    const scenarios = [
-        {
-            text: "You've just landed in Tokyo and need to find your luggage. What do you say to the airport staff?",
-            imageUrl: "https://i.imgur.com/Qq6c0fj.jpeg",
-            options: [
-                { japanese: "荷物はどこですか？", romaji: "Nimotsu wa doko desu ka?", translation: "Where is the baggage?", isCorrect: true },
-                { japanese: "トイレはどこですか？", romaji: "Toire wa doko desu ka?", translation: "Where is the toilet?", isCorrect: false },
-                { japanese: "これはいくらですか？", romaji: "Kore wa ikura desu ka?", translation: "How much is this?", isCorrect: false }
-            ],
-        },
-        {
-            text: "You need to get to your hotel. How do you ask the taxi driver, 'Please take me to my hotel?'",
-            imageUrl: "https://i.imgur.com/WjxmkKu.jpeg",
-            options: [
-                { japanese: "ホテルまでお願いします。", romaji: "Hoteru made onegai shimasu.", translation: "Please take me to my hotel.", isCorrect: true },
-                { japanese: "タクシー乗り場はどこですか？", romaji: "Takushii-noriba wa doko desu ka?", translation: "Where is the taxi stand?", isCorrect: false },
-                { japanese: "元気ですか？", romaji: "Genki desu ka?", translation: "How are you?", isCorrect: false }
-            ],
-        },
-        {
-            text: "You arrive at your hotel. How do you tell the front desk, 'I am here to check in'?",
-            imageUrl: "https://i.imgur.com/sAYoQkS.jpeg",
-            options: [
-                { japanese: "チェックインをお願いします。", romaji: "Chekkuin o onegai shimasu.", translation: "I am here to check in.", isCorrect: true },
-                { japanese: "お会計をお願いします。", romaji: "Okaikei o onegai shimasu.", translation: "Check, please.", isCorrect: false },
-                { japanese: "トイレはどこですか？", romaji: "Toire wa doko desu ka?", translation: "Where is the toilet?", isCorrect: false }
-            ],
-        },
-        {
-            text: "You've arrived at your room, how do you say 'I am really hungry'?",
-            imageUrl: "https://i.imgur.com/EIidutG.png",
-            options: [
-                { japanese: "お腹がすきました。", romaji: "Onaka ga sukimashita.", translation: "I'm hungry.", isCorrect: true },
-                { japanese: "予約をしました。", romaji: "Yoyaku o shimashita.", translation: "I have a reservation.", isCorrect: false },
-                { japanese: "チェックインをお願いします。", romaji: "Chekkuin o onegai shimasu.", translation: "I'd like to check in.", isCorrect: false }
-            ],
-        },
-        {
-            text: "You arrive at a local ramen shop, how do you say, 'I would like a bowl of ramen'?",
-            imageUrl: "https://i.imgur.com/8RAKAAT.jpeg",
-            options: [
-                { japanese: "ラーメンをください。", romaji: "Rāmen o kudasai.", translation: "I would like a bowl of ramen.", isCorrect: true },
-                { japanese: "おいしいレストランはどこですか？", romaji: "Oishii resutoran wa doko desu ka?", translation: "Where is a delicious restaurant?", isCorrect: false },
-                { japanese: "お会計をお願いします。", romaji: "Okaikei o onegai shimasu.", translation: "Check, please.", isCorrect: false }
-            ],
-        },
-    ];
-
-    let currentScenarioIndex = 0;
-    let score = 0; // Initialize score
-    let hoverTimeout = null;
-    let japaneseVoice = null; // Cache the Japanese voice
-
-    // UI elements
-    const startScreen = document.getElementById('start-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const startButton = document.getElementById('start-button');
-    const scenarioImage = document.getElementById('scenario-image');
-    const scenarioText = document.getElementById('scenario-text');
-    const optionsContainer = document.getElementById('options-container');
-    const feedbackText = document.getElementById('feedback-text');
-    const translationText = document.getElementById('translation-text');
-    const nextButton = document.getElementById('next-button');
-    const backgroundMusic = document.getElementById('background-music');
-    const musicToggleButton = document.getElementById('music-toggle-button');
-    const themeToggleButton = document.getElementById('theme-toggle-button');
-    const scoreDisplay = document.getElementById('score-display'); // Cache score element
-
-    // Set initial music volume
-    backgroundMusic.volume = 0.2;
-
-    // --- Core Functions ---
-
-    /**
-     * Initializes and caches the best Japanese voice for TTS.
-     */
-    function setupJapaneseVoice() {
-        if (!('speechSynthesis' in window)) {
-            console.warn("Web Speech API not supported.");
-            return;
-        }
-
-        const setVoice = () => {
-            const voices = speechSynthesis.getVoices();
-            // Try to find a standard Japanese voice
-            japaneseVoice = voices.find(voice => voice.lang === 'ja-JP');
-            if (!japaneseVoice) {
-                // Fallback to the first available voice
-                japaneseVoice = voices[0];
-            }
-        };
-
-        // Voices may not be immediately loaded, so we listen for the event
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = setVoice;
-        }
-        // Call once in case voices are already loaded
-        setVoice();
-    }
-
-    /**
-     * Uses the Web Speech API to play the Japanese text.
-     */
-    function playJapaneseAudio(text) {
-        if (!('speechSynthesis' in window)) return;
+    <!-- Scene Page -->
+    <div id="scene-page" class="hidden absolute top-0 left-0 w-full h-full bg-gray-800 z-30 flex flex-col items-center text-white p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-3xl">
+            <button id="back-to-adventures-btn" class="clickable flex items-center gap-2 text-lg hover:text-yellow-400 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                Back to Adventures
+            </button>
+            <h1 id="scene-adventure-title" class="text-3xl font-bold">Adventure Title</h1>
+            <p id="scene-prompt" class="text-lg mt-1 mb-4 text-gray-300">Prompt text goes here.</p>
+        </div>
         
-        // Stop any currently speaking utterance
-        speechSynthesis.cancel(); 
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        if (japaneseVoice) {
-            utterance.voice = japaneseVoice;
-            utterance.lang = 'ja-JP'; // Ensure correct language setting
-        } else {
-            // Wait for a moment if the voice is still loading, or use default
-            setupJapaneseVoice(); 
-        }
-
-        utterance.rate = 0.9; // Slightly slower for comprehension
-        speechSynthesis.speak(utterance);
-    }
-
-    /**
-     * Fisher-Yates shuffle algorithm
-     */
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-    }
-
-    /**
-     * Updates the score display.
-     */
-    function updateScoreDisplay() {
-        scoreDisplay.textContent = `Score: ${score}/${scenarios.length}`;
-    }
-
-    /**
-     * Renders the current scenario.
-     */
-    function renderScenario() {
-        if (currentScenarioIndex >= scenarios.length) {
-            endGame();
-            return;
-        }
-
-        const scenario = scenarios[currentScenarioIndex];
-        scenarioText.textContent = scenario.text;
-        optionsContainer.innerHTML = '';
-        feedbackText.textContent = '';
-        nextButton.classList.add('hidden');
-        
-        updateScoreDisplay(); // Update score display when a new scenario loads
-        
-        // Handle image display
-        scenarioImage.src = scenario.imageUrl;
-        scenarioImage.style.display = scenario.imageUrl ? 'block' : 'none';
-
-        // Shuffle the options before rendering
-        const shuffledOptions = shuffleArray([...scenario.options]);
-
-        shuffledOptions.forEach(option => {
-            const wrapper = document.createElement('div');
-            wrapper.className = "flex flex-col items-center w-full";
-            
-            const button = document.createElement('button');
-            button.className = "option-button font-inter hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none transition-all duration-300 transform active:scale-95 text-xl p-4";
-            
-            const japaneseText = document.createElement('span');
-            japaneseText.textContent = option.japanese;
-            japaneseText.className = "text-2xl font-bold";
-
-            const romajiText = document.createElement('span');
-            romajiText.textContent = option.romaji;
-            // Set romaji text color to ensure black text (overrides light gray in dark mode)
-            romajiText.className = "text-base italic text-gray-500 dark:text-gray-300 mt-1";
-
-            button.appendChild(japaneseText);
-            button.appendChild(romajiText);
-
-            button.dataset.isCorrect = option.isCorrect;
-            button.dataset.translation = option.translation;
-            button.dataset.japanese = option.japanese;
-
-            // Add hover effect with a delay for audio playback
-            button.addEventListener('mouseenter', () => {
-                // Clear any previous hover and stop speaking
-                if (hoverTimeout) clearTimeout(hoverTimeout);
-                speechSynthesis.cancel(); 
-
-                hoverTimeout = setTimeout(() => {
-                    playJapaneseAudio(option.japanese);
-                }, 300); // 300ms delay for intentional hover
-            });
-
-            button.addEventListener('mouseleave', () => {
-                if (hoverTimeout) {
-                    clearTimeout(hoverTimeout);
-                }
-            });
-
-            // Add click event listener
-            button.addEventListener('click', handleChoice);
-
-            wrapper.appendChild(button);
-            optionsContainer.appendChild(wrapper);
-        });
-    }
-
-    function handleChoice(event) {
-        const chosenButton = event.currentTarget;
-        const isCorrect = chosenButton.dataset.isCorrect === 'true';
-
-        // Disable all buttons to prevent further clicks
-        optionsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
-        
-        // Remove the hover timeout to stop potential audio play
-        if (hoverTimeout) clearTimeout(hoverTimeout);
-
-        if (isCorrect) {
-            score++; // Increment score
-            updateScoreDisplay(); // Update the display
-
-            feedbackText.textContent = "Correct! 💮 You chose the right phrase. Continue your journey!";
-            feedbackText.className = "text-green-600 dark:text-green-400 font-bold text-xl mt-4";
-            nextButton.classList.remove('hidden');
-            
-            // Highlight all options with their translations
-            optionsContainer.childNodes.forEach(btnWrapper => {
-                const button = btnWrapper.querySelector('button');
-                const translation = button.dataset.translation;
-                
-                // Add correct class to the right button
-                if (button.dataset.isCorrect === 'true') {
-                    button.classList.add('correct');
-                }
-
-                // Append the translation for review
-                let translationDisplay = btnWrapper.querySelector('.translation-display');
-                if (!translationDisplay) {
-                    translationDisplay = document.createElement('p');
-                    translationDisplay.className = "translation-display text-base mt-2 text-gray-700 dark:text-gray-200 font-semibold";
-                    btnWrapper.appendChild(translationDisplay);
-                }
-                translationDisplay.textContent = `[${translation}]`;
-            });
-            
-        } else {
-            feedbackText.textContent = "That's not quite right. Try again.";
-            feedbackText.className = "text-red-600 dark:text-red-400 font-bold text-xl mt-4";
-            
-            // Only disable the incorrect button, allowing re-attempt
-            chosenButton.disabled = true;
-            chosenButton.classList.add('incorrect');
-
-            // Re-enable other buttons, but only those that are not correct
-            optionsContainer.querySelectorAll('button').forEach(btn => {
-                if (btn !== chosenButton && !btn.classList.contains('correct')) {
-                    btn.disabled = false;
-                }
-            });
-        }
-    }
-
-    function nextScenario() {
-        currentScenarioIndex++;
-        renderScenario();
-    }
-
-    function endGame() {
-        // Clear game screen and display completion message
-        gameScreen.innerHTML = `
-            <div class="space-y-6 text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-50">Adventure Complete!</h1>
-                <p class="text-2xl font-bold text-green-600 dark:text-green-400">
-                    Your Final Score: ${score} out of ${scenarios.length}!
-                </p>
-                <p class="text-lg md:text-xl text-gray-900 dark:text-gray-50 max-w-md mx-auto">
-                    You've successfully completed your first journey through Japan and mastered essential phrases.
-                    Keep practicing to become a language master!
-                </p>
-                <button id="restart-button" class="mt-8 bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
-                    Start Over
-                </button>
+        <!-- Scene Image Flip Container -->
+        <div class="w-full max-w-3xl aspect-video bg-transparent my-4 flex-shrink-0 flip-card">
+             <div id="flip-card-inner" class="flip-card-inner">
+                <div class="flip-card-front shadow-lg">
+                    <img id="scene-image" src="https://placehold.co/1280x720/000000/FFFFFF?text=Scene" class="w-full h-full object-cover rounded-lg">
+                </div>
+                <div class="flip-card-back shadow-lg">
+                    <h2 class="text-2xl font-bold">Phrase Notes</h2>
+                    <p class="mt-4 text-lg">Detailed notes about the grammar and context will appear here!</p>
+                </div>
             </div>
-        `;
-        document.getElementById('restart-button').addEventListener('click', restartGame);
-    }
-
-    function restartGame() {
-        currentScenarioIndex = 0;
-        // Reload the page to reset the state cleanly
-        window.location.reload(); 
-    }
-
-    // --- Initialization and Event Listeners ---
-
-    function initGame() {
-        // Initialize the Japanese voice for TTS
-        setupJapaneseVoice();
-
-        // Event Listeners for Start and Navigation
-        startButton.addEventListener('click', () => {
-            backgroundMusic.muted = false;
-            backgroundMusic.play().catch(e => console.error("Music playback failed:", e));
-            startScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            renderScenario();
-        });
-
-        nextButton.addEventListener('click', nextScenario);
-
-        // Music Toggle
-        musicToggleButton.addEventListener('click', () => {
-            if (backgroundMusic.paused || backgroundMusic.muted) {
-                backgroundMusic.muted = false;
-                backgroundMusic.play();
-                musicToggleButton.textContent = "Music Off";
-            } else {
-                backgroundMusic.pause();
-                backgroundMusic.muted = true;
-                musicToggleButton.textContent = "Music On";
-            }
-        });
+        </div>
         
-        // Theme Toggle
-        themeToggleButton.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            const gameContainer = document.getElementById('game-container');
-            // Toggle the card class for dark mode background
-            gameContainer.classList.toggle('card'); 
+        <!-- Options -->
+        <div id="scene-options" class="w-full max-w-3xl mt-4 grid grid-cols-1 md:grid-cols-3 gap-4"></div>
 
-            if (document.body.classList.contains('dark-mode')) {
-                themeToggleButton.textContent = "Light Mode";
-            } else {
-                themeToggleButton.textContent = "Dark Mode";
+        <!-- Action Buttons (Continue/Review) -->
+        <div id="scene-actions" class="w-full max-w-3xl mt-6 flex flex-col sm:flex-row gap-4 hidden">
+            <button id="review-btn" class="clickable bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg text-lg w-full">Review Phrase Details</button>
+            <button id="continue-btn" class="clickable bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg text-lg w-full">Continue Touring</button>
+        </div>
+    </div>
+
+    <!-- Badge Unlocked Modal -->
+    <div id="badge-modal" class="hidden absolute top-0 left-0 w-full h-full bg-black bg-opacity-70 z-40 flex justify-center items-center p-4">
+        <div class="bg-gray-800 p-8 rounded-2xl text-center shadow-2xl flex flex-col items-center gap-4 w-full max-w-md transform scale-95 opacity-0 animate-popup">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" clip-rule="evenodd" />
+            </svg>
+            <h2 class="text-3xl font-bold">You earned a new badge!</h2>
+            <p id="badge-name" class="text-xl text-yellow-400"></p>
+            <div class="flex flex-col w-full gap-3 mt-4">
+                 <button id="badge-continue-btn" class="clickable bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg w-full">Continue</button>
+                 <button id="badge-progress-btn" class="clickable bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg text-lg w-full">View Progress Tracker</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress Tracker Page -->
+    <div id="progress-page" class="hidden absolute top-0 left-0 w-full h-full bg-gray-900 z-50 flex flex-col items-center text-white p-8 overflow-y-auto">
+        <button id="back-from-progress-btn" class="clickable absolute top-6 left-6 flex items-center gap-2 text-lg hover:text-yellow-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            Back
+        </button>
+        <h1 class="text-5xl font-extrabold mb-8">Progress Tracker</h1>
+        
+        <div class="mb-8 text-center">
+            <p class="text-lg text-gray-400">Current Rank</p>
+            <h2 id="current-rank" class="text-3xl font-bold text-yellow-400">Novice Traveler</h2>
+        </div>
+
+        <div id="badge-grid" class="w-full max-w-4xl grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <!-- Badges will be dynamically inserted here -->
+        </div>
+    </div>
+
+
+    <script>
+        let scene, camera, renderer, globe, stars;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        const container = document.getElementById('globe-container');
+        const loadingMessage = document.getElementById('loading-message');
+
+        // UI Element references
+        const mainUI = document.getElementById('main-ui');
+        const locationInfo = document.getElementById('location-info');
+        const levelPage = document.getElementById('level-page');
+        const scenePage = document.getElementById('scene-page');
+        const progressPage = document.getElementById('progress-page');
+        const instructionText = document.getElementById('instruction-text');
+        const locationNameUI = document.getElementById('location-name');
+        const levelTitleUI = document.getElementById('level-title');
+        const adventureListUI = document.getElementById('adventure-list');
+        const sceneAdventureTitleUI = document.getElementById('scene-adventure-title');
+        const scenePromptUI = document.getElementById('scene-prompt');
+        const sceneImageUI = document.getElementById('scene-image');
+        const sceneOptionsUI = document.getElementById('scene-options');
+        const sceneActionsUI = document.getElementById('scene-actions');
+        const continueBtn = document.getElementById('continue-btn');
+        const reviewBtn = document.getElementById('review-btn');
+        const flipCardInner = document.getElementById('flip-card-inner');
+        const badgeModal = document.getElementById('badge-modal');
+        const badgeNameUI = document.getElementById('badge-name');
+
+        // --- Interactivity State ---
+        let raycaster, mouse, clickableObjects = [];
+        let isZooming = false;
+        let isZoomedIn = false;
+        let cameraTargetPosition = new THREE.Vector3();
+        const originalCameraPosition = new THREE.Vector3(0, 0, 10);
+        let selectedLocationName = '';
+        let selectedAdventureIndex = 0;
+        let currentSceneIndex = 0;
+
+        // --- Game State & Content ---
+        let gameState;
+        const countryOrder = ['Japan', 'S. Korea', 'Mexico', 'Italy', 'Germany', 'France'];
+        
+        const ranks = [
+            "Novice Traveler", 
+            "Regional Explorer", 
+            "Continental Voyager", 
+            "Seasoned Globetrotter", 
+            "World Wanderer", 
+            "Master Linguist",
+            "Global Ambassador"
+        ];
+        
+        const adventures = {
+            'Japan': [{
+                title: 'Arrived in Tokyo',
+                badge: 'Tokyo Explorer',
+                scenes: [{
+                    prompt: 'You just landed! How do you ask "Where is the baggage claim?"',
+                    image: 'https://placehold.co/1280x720/334155/FFFFFF?text=Tokyo+Airport',
+                    options: [ { text: 'トイレはどこですか？ (Toire wa doko desu ka?)', translation: 'Where is the restroom?', correct: false }, { text: '手荷物受取所はどこですか？ (Tenimotsu uketorijo wa doko desu ka?)', translation: 'Where is the baggage claim?', correct: true }, { text: 'これはいくらですか？ (Kore wa ikura desu ka?)', translation: 'How much is this?', correct: false } ]
+                }, {
+                    prompt: 'You have your bags. How do you ask "Which train goes to Shibuya?"',
+                    image: 'https://placehold.co/1280x720/553341/FFFFFF?text=Train+Station',
+                    options: [ { text: '渋谷へ行く電車はどれですか？ (Shibuya e iku densha wa dore desu ka?)', translation: 'Which train goes to Shibuya?', correct: true }, { text: '助けてください！ (Tasukete kudasai!)', translation: 'Please help!', correct: false }, { text: 'もう一度お願いします (Mōichido onegaishimasu)', translation: 'Once more, please.', correct: false } ]
+                }, {
+                    prompt: 'Time for lunch! How do you tell the chef "This is delicious!"?',
+                    image: 'https://placehold.co/1280x720/415533/FFFFFF?text=Ramen+Shop',
+                    options: [ { text: 'お勘定をお願いします (Okanjō o onegaishimasu)', translation: 'Check, please.', correct: false }, { text: 'これは美味しいです！ (Kore wa oishī desu!)', translation: 'This is delicious!', correct: true }, { text: 'はじめまして (Hajimemashite)', translation: 'Nice to meet you.', correct: false } ]
+                }, {
+                    prompt: 'You need to check into your hotel. How do you say "I have a reservation"?',
+                    image: 'https://placehold.co/1280x720/6b7280/FFFFFF?text=Hotel+Lobby',
+                    options: [ { text: '予約があります (Yoyaku ga arimasu)', translation: 'I have a reservation.', correct: true }, { text: 'メニューをください (Menyū o kudasai)', translation: 'Can I have the menu?', correct: false }, { text: 'さようなら (Sayōnara)', translation: 'Goodbye.', correct: false } ]
+                }, {
+                    prompt: 'You had a great day. How do you say a simple "Thank you"?',
+                    image: 'https://placehold.co/1280x720/1d4ed8/FFFFFF?text=Tokyo+Night',
+                    options: [ { text: 'すみません (Sumimasen)', translation: 'Excuse me / Sorry.', correct: false }, { text: 'お元気ですか (Ogenki desu ka)', translation: 'How are you?', correct: false }, { text: 'ありがとうございます (Arigatō gozaimasu)', translation: 'Thank you.', correct: true } ]
+                }]
+            },
+            { title: 'Hike the Sacred Trails of Mt. Fuji', scenes: [], badge: 'Fuji Mountaineer' },
+            { title: 'Discover the Ancient Temples of Kyoto', scenes: [], badge: 'Kyoto Historian' },
+            { title: 'Taste the Flavors of Osaka\'s Kitchen', scenes: [], badge: 'Osaka Foodie' },
+            { title: 'Relax in the Hot Springs of Hakone', scenes: [], badge: 'Hakone Relaxer' }
+            ],
+            'S. Korea': [
+                { title: 'Explore Seoul Palace', scenes: [], badge: 'Seoul Royalist' },
+                { title: 'Hike Bukhansan Park', scenes: [], badge: 'Bukhansan Peak' },
+                { title: 'Visit the DMZ', scenes: [], badge: 'DMZ Witness' },
+                { title: 'Nightlife in Gangnam', scenes: [], badge: 'Gangnam Stylist' },
+                { title: 'Myeongdong Market', scenes: [], badge: 'Myeongdong Taster' }
+            ],
+            'Mexico': [
+                { title: 'Chichen Itza Ruins', scenes: [], badge: 'Mayan Explorer' },
+                { title: 'Swim in Cenotes', scenes: [], badge: 'Cenote Diver' },
+                { title: 'Mexico City Markets', scenes: [], badge: 'Market Navigator' },
+                { title: 'Relax in Cancun', scenes: [], badge: 'Cancun Cruiser' },
+                { title: 'Taste Street Tacos', scenes: [], badge: 'Taco Connoisseur' }
+            ],
+            'Italy': [
+                { title: 'Explore the Colosseum', scenes: [], badge: 'Roman Gladiator' },
+                { title: 'Venice Canal Tour', scenes: [], badge: 'Venetian Voyager' },
+                { title: 'Discover Florence\'s Art', scenes: [], badge: 'Renaissance Scholar' },
+                { title: 'Taste Tuscan Wine', scenes: [], badge: 'Tuscan Sommelier' },
+                { title: 'Hike the Amalfi Coast', scenes: [], badge: 'Amalfi Adventurer' }
+            ],
+            'Germany': [
+                { title: 'Visit Brandenburg Gate', scenes: [], badge: 'Berlin Historian' },
+                { title: 'Explore Neuschwanstein Castle', scenes: [], badge: 'Castle Fantasist' },
+                { title: 'Oktoberfest Experience', scenes: [], badge: 'Oktoberfest Pro' },
+                { title: 'Drive the Autobahn', scenes: [], badge: 'Autobahn Ace' },
+                { title: 'Discover the Black Forest', scenes: [], badge: 'Black Forest Wanderer' }
+            ],
+            'France': [
+                { title: 'Ascend the Eiffel Tower', scenes: [], badge: 'Parisian Pathfinder' },
+                { title: 'Explore the Louvre Museum', scenes: [], badge: 'Louvre Connoisseur' },
+                { title: 'Taste Champagne', scenes: [], badge: 'Champagne Expert' },
+                { title: 'Relax on the French Riviera', scenes: [], badge: 'Riviera Relaxer' },
+                { title: 'Visit Mont Saint-Michel', scenes: [], badge: 'Abbey Explorer' }
+            ]
+        };
+        
+        // --- Setup Functions ---
+        function initializeGameState() {
+            gameState = { 
+                unlockedCountries: ['Japan'], 
+                unlockedAdventures: { 'Japan': 1 }, 
+                completedAdventures: { 'Japan': [], 'S. Korea': [], 'Mexico': [], 'Italy': [], 'Germany': [], 'France': [] },
+                badges: [],
+                sceneProgress: {'Japan-0': 0} 
+            }; 
+        }
+        function createStars() { const g = new THREE.BufferGeometry(); const m = new THREE.PointsMaterial({ color: 0xffffff, size: 0.02 }); const v = []; for (let i = 0; i < 10000; i++) { const x = (Math.random() - 0.5) * 2000; const y = (Math.random() - 0.5) * 2000; const z = (Math.random() - 0.5) * 2000; if (Math.sqrt(x*x+y*y+z*z) > 100) v.push(x, y, z); } g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); stars = new THREE.Points(g, m); scene.add(stars); }
+        function createAtmosphere() { const g = new THREE.SphereGeometry(3.1, 64, 64); const m = new THREE.ShaderMaterial({ vertexShader: `varying vec3 vN; void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`, fragmentShader: `varying vec3 vN; void main() { float i = pow(0.6 - dot(vN, vec3(0, 0, 1.0)), 2.0); gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * i; }`, blending: THREE.AdditiveBlending, side: THREE.BackSide }); const a = new THREE.Mesh(g, m); a.scale.set(1.1, 1.1, 1.1); scene.add(a); }
+        function latLonToVector3(lat, lon, r) { const phi = (90 - lat) * (Math.PI / 180); const theta = (lon + 180) * (Math.PI / 180); return new THREE.Vector3(-(r * Math.sin(phi) * Math.cos(theta)), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta)); }
+        function createCityMarkers() { const locs = [ { name: 'Japan', lat: 35.6895, lon: 139.6917 }, { name: 'France', lat: 48.8566, lon: 2.3522 }, { name: 'Italy', lat: 41.9028, lon: 12.4964 }, { name: 'Mexico', lat: 19.4326, lon: -99.1332 }, { name: 'Germany', lat: 52.5200, lon: 13.4050 }, { name: 'S. Korea', lat: 37.5665, lon: 126.9780 } ]; const g = new THREE.SphereGeometry(0.08, 16, 16); const uM = new THREE.MeshBasicMaterial({ color: 0xff0000 }); const lM = new THREE.MeshBasicMaterial({ color: 0x888888 }); locs.forEach(l => { const isU = gameState.unlockedCountries.includes(l.name); const m = new THREE.Mesh(g, isU ? uM : lM); m.position.copy(latLonToVector3(l.lat, l.lon, 3)); m.name = `${l.name}Marker`; m.userData = { locationName: l.name, isUnlocked: isU }; if (globe) globe.add(m); clickableObjects.push(m); }); }
+        function updateMarkers() { const uM = new THREE.MeshBasicMaterial({ color: 0xff0000 }); const lM = new THREE.MeshBasicMaterial({ color: 0x888888 }); clickableObjects.forEach(m => { const isU = gameState.unlockedCountries.includes(m.userData.locationName); m.material = isU ? uM : lM; m.userData.isUnlocked = isU; }); }
+
+        // --- Main Initialization ---
+        function init() {
+            initializeGameState();
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.copy(originalCameraPosition);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load('https://unpkg.com/three-globe@2.27.2/example/img/earth-dark.jpg', (earthTexture) => {
+                const geometry = new THREE.SphereGeometry(3, 64, 64);
+                const material = new THREE.MeshPhongMaterial({ map: earthTexture, specular: 0x333333, shininess: 10 });
+                globe = new THREE.Mesh(geometry, material);
+                scene.add(globe);
+                createCityMarkers();
+                loadingMessage.style.display = 'none';
+            });
+
+            createStars(); createAtmosphere();
+            scene.add(new THREE.AmbientLight(0xCCCCCC));
+            const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.5);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            addEventListeners();
+        }
+        
+        function addEventListeners() {
+            renderer.domElement.addEventListener('mousedown', onPointerStart);
+            renderer.domElement.addEventListener('mousemove', onPointerMove);
+            renderer.domElement.addEventListener('mouseup', onPointerEnd);
+            renderer.domElement.addEventListener('click', onObjectClick);
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('start-journey-btn').addEventListener('click', showAdventureList);
+            document.getElementById('back-to-globe-btn').addEventListener('click', returnToGlobe);
+            document.getElementById('back-to-adventures-btn').addEventListener('click', returnToAdventureList);
+            continueBtn.addEventListener('click', continueToNextScene);
+            reviewBtn.addEventListener('click', () => {
+                flipCardInner.classList.toggle('is-flipped');
+            });
+            document.getElementById('badge-continue-btn').addEventListener('click', () => {
+                badgeModal.classList.add('hidden');
+                returnToAdventureList();
+            });
+            document.getElementById('badge-progress-btn').addEventListener('click', () => {
+                 showProgressTracker();
+            });
+            document.getElementById('back-from-progress-btn').addEventListener('click', () => {
+                progressPage.classList.add('hidden');
+                showAdventureList();
+            });
+        }
+
+        // --- Page Navigation & UI Display ---
+        function showAdventureList() {
+            levelTitleUI.textContent = `Welcome to ${selectedLocationName}!`;
+            adventureListUI.innerHTML = '';
+            const countryAdventures = adventures[selectedLocationName] || [];
+            const unlockedCount = gameState.unlockedAdventures[selectedLocationName] || 0;
+            const completed = gameState.completedAdventures[selectedLocationName] || [];
+
+            countryAdventures.forEach((adventure, index) => {
+                const isUnlocked = index < unlockedCount;
+                const isCompleted = completed.includes(index);
+                const item = document.createElement('div');
+                item.className = 'bg-gray-800 p-4 rounded-lg flex justify-between items-center';
+                
+                let titleHTML = `<span class="text-lg ${isUnlocked ? 'text-white' : 'text-gray-500'}">${adventure.title}</span>`;
+                if(isCompleted) {
+                    titleHTML += `<span class="ml-4 text-green-400 font-semibold text-sm">✓ Completed</span>`;
+                }
+
+                let buttonHTML;
+                if(isCompleted) {
+                    buttonHTML = `<button class="clickable bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg" onclick="startAdventure(${index})">Revisit Adventure</button>`;
+                } else if (isUnlocked) {
+                    buttonHTML = `<button class="clickable bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg" onclick="startAdventure(${index})">Start Adventure</button>`;
+                } else {
+                    buttonHTML = `<button class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" disabled>Locked</button>`;
+                }
+                
+                item.innerHTML = `<div>${titleHTML}</div><div>${buttonHTML}</div>`;
+                adventureListUI.appendChild(item);
+            });
+            
+            mainUI.classList.add('hidden');
+            levelPage.classList.remove('hidden');
+        }
+
+        function startAdventure(adventureIndex) {
+            selectedAdventureIndex = adventureIndex;
+            currentSceneIndex = 0;
+            displayCurrentScene();
+            levelPage.classList.add('hidden');
+            scenePage.classList.remove('hidden');
+        }
+
+        function displayCurrentScene() {
+            flipCardInner.classList.remove('is-flipped'); // Reset card flip
+            const adventure = adventures[selectedLocationName][selectedAdventureIndex];
+            const sceneData = adventure.scenes[currentSceneIndex];
+            
+            sceneAdventureTitleUI.textContent = adventure.title;
+            scenePromptUI.textContent = sceneData.prompt;
+            sceneImageUI.src = sceneData.image;
+            sceneImageUI.classList.remove('scene-image-animation');
+            void sceneImageUI.offsetWidth;
+            sceneImageUI.classList.add('scene-image-animation');
+            
+            sceneOptionsUI.innerHTML = '';
+            sceneData.options.forEach((option) => {
+                const card = document.createElement('div');
+                card.className = 'flex flex-col';
+                const button = document.createElement('button');
+                button.className = 'clickable bg-blue-600 hover:bg-blue-500 p-4 rounded-lg text-left transition-colors break-words flex-grow flex items-center justify-center';
+                button.innerHTML = `<span class="text-center">${option.text}</span>`;
+                button.onclick = () => handleOptionClick(option, card);
+                const translation = document.createElement('p');
+                translation.className = 'text-center text-yellow-400 mt-2 h-6 invisible';
+                translation.textContent = option.translation;
+                card.appendChild(button);
+                card.appendChild(translation);
+                sceneOptionsUI.appendChild(card);
+            });
+
+            sceneActionsUI.classList.add('hidden');
+        }
+        
+        function showProgressTracker() {
+            badgeModal.classList.add('hidden');
+            scenePage.classList.add('hidden');
+            levelPage.classList.add('hidden');
+            mainUI.classList.add('hidden');
+            progressPage.classList.remove('hidden');
+
+            // Calculate and display rank
+            let completedCountries = 0;
+            for (const country of countryOrder) {
+                const completedAdventuresInCountry = gameState.completedAdventures[country]?.length || 0;
+                const totalAdventuresInCountry = adventures[country]?.length || 0;
+                if (totalAdventuresInCountry > 0 && completedAdventuresInCountry >= totalAdventuresInCountry) {
+                    completedCountries++;
+                }
             }
-        });
-    }
+            const rankIndex = Math.min(completedCountries, ranks.length - 1);
+            document.getElementById('current-rank').textContent = ranks[rankIndex];
 
-    // Run initialization when the DOM is fully loaded
-    document.addEventListener('DOMContentLoaded', initGame);
+            const badgeGrid = document.getElementById('badge-grid');
+            badgeGrid.innerHTML = '';
 
-    // Initial check to ensure the start screen is visible on page load
-    window.onload = () => {
-        gameScreen.classList.add('hidden');
-        startScreen.classList.remove('hidden');
-        // Ensure initial score is set even if game doesn't start
-        updateScoreDisplay(); 
-    };
-</script>
+            const allBadges = [];
+            for (const country in adventures) {
+                adventures[country].forEach(adv => {
+                    if (adv.badge) {
+                        allBadges.push({ name: adv.badge, country: country });
+                    }
+                });
+            }
 
+            allBadges.forEach(badge => {
+                const hasBadge = gameState.badges.includes(badge.name);
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-lg flex flex-col items-center gap-2 text-center ${hasBadge ? 'bg-gray-700' : 'bg-gray-800 opacity-60'}`;
+                
+                const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" clip-rule="evenodd" /></svg>`;
+                
+                card.innerHTML = `
+                    <div class="${hasBadge ? 'text-yellow-400' : 'text-gray-500'}">${iconSVG}</div>
+                    <h3 class="font-bold">${badge.name}</h3>
+                    <p class="text-sm text-gray-400">${badge.country}</p>
+                    ${!hasBadge ? '<p class="text-xs font-semibold mt-auto">LOCKED</p>' : ''}
+                `;
+                badgeGrid.appendChild(card);
+            });
+        }
+
+
+        function returnToGlobe() { levelPage.classList.add('hidden'); mainUI.classList.remove('hidden'); }
+        function returnToAdventureList() { scenePage.classList.add('hidden'); showAdventureList(); }
+
+        // --- Gameplay Logic ---
+        function handleOptionClick(option, clickedCard) {
+            const clickedButton = clickedCard.querySelector('button');
+            const translationP = clickedCard.querySelector('p');
+
+            if (option.correct) {
+                sceneOptionsUI.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                sceneOptionsUI.querySelectorAll('p').forEach(p => p.classList.remove('invisible'));
+                clickedButton.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                clickedButton.classList.add('bg-green-500');
+                sceneActionsUI.classList.remove('hidden');
+                const totalScenes = adventures[selectedLocationName][selectedAdventureIndex].scenes.length;
+                if (currentSceneIndex < totalScenes - 1) {
+                    continueBtn.textContent = `Continue Touring (${currentSceneIndex + 1}/${totalScenes} Scenes)`;
+                } else {
+                    continueBtn.textContent = 'Complete Adventure';
+                }
+            } else {
+                clickedButton.disabled = true;
+                clickedButton.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                clickedButton.classList.add('bg-red-500', 'shake');
+                translationP.classList.remove('invisible');
+                setTimeout(() => {
+                    if (sceneActionsUI.classList.contains('hidden')) { // Only reset if correct answer hasn't been found
+                        clickedButton.disabled = false;
+                        clickedButton.classList.remove('bg-red-500', 'shake');
+                        clickedButton.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                        translationP.classList.add('invisible');
+                    }
+                }, 1500);
+            }
+        }
+
+        function continueToNextScene() {
+            const adventure = adventures[selectedLocationName][selectedAdventureIndex];
+            if (currentSceneIndex === adventure.scenes.length - 1) {
+                completeAdventure();
+            } else {
+                currentSceneIndex++;
+                displayCurrentScene();
+            }
+        }
+        
+        function completeAdventure() {
+            const adventure = adventures[selectedLocationName][selectedAdventureIndex];
+            const isAlreadyCompleted = gameState.completedAdventures[selectedLocationName]?.includes(selectedAdventureIndex);
+
+            if (!isAlreadyCompleted) {
+                gameState.completedAdventures[selectedLocationName].push(selectedAdventureIndex);
+                if (!gameState.badges.includes(adventure.badge)) {
+                    gameState.badges.push(adventure.badge);
+                }
+                badgeNameUI.textContent = `${adventure.badge} Badge Unlocked!`;
+                badgeModal.classList.remove('hidden');
+
+                const currentUnlockedCount = gameState.unlockedAdventures[selectedLocationName];
+                if (selectedAdventureIndex + 1 === currentUnlockedCount) {
+                    gameState.unlockedAdventures[selectedLocationName]++;
+                }
+                if (gameState.unlockedAdventures[selectedLocationName] > adventures[selectedLocationName].length) {
+                    const countryIdx = countryOrder.indexOf(selectedLocationName);
+                    if (countryIdx < countryOrder.length - 1) {
+                        const nextCountry = countryOrder[countryIdx + 1];
+                        if (!gameState.unlockedCountries.includes(nextCountry)) {
+                            gameState.unlockedCountries.push(nextCountry);
+                            gameState.unlockedAdventures[nextCountry] = 1;
+                        }
+                    }
+                }
+            } else {
+                returnToAdventureList();
+            }
+        }
+        
+        // --- Globe Interaction ---
+        function getMousePosition(e) { return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }; }
+        function onPointerStart(e) { isDragging = true; container.classList.add('grabbing'); const p = getMousePosition(e); previousMousePosition = { x: p.x, y: p.y }; }
+        function onPointerMove(e) { if (!isDragging || isZooming || !globe) return; const p = getMousePosition(e); globe.rotation.y += (p.x - previousMousePosition.x) * 0.005; globe.rotation.x += (p.y - previousMousePosition.y) * 0.005; previousMousePosition = { x: p.x, y: p.y }; }
+        function onPointerEnd() { isDragging = false; container.classList.remove('grabbing'); }
+        function onObjectClick(e) { if (Math.abs(previousMousePosition.x - e.clientX) > 2 || Math.abs(previousMousePosition.y - e.clientY) > 2) return; mouse.x = (e.clientX / window.innerWidth) * 2 - 1; mouse.y = - (e.clientY / window.innerHeight) * 2 + 1; raycaster.setFromCamera(mouse, camera); const intersects = raycaster.intersectObjects(clickableObjects); if (intersects.length > 0 && intersects[0].object.userData.isUnlocked) { toggleZoom(intersects[0].object, intersects[0].object.userData.locationName); } }
+        function toggleZoom(targetObject, locationName) { isZooming = true; isZoomedIn = !isZoomedIn; locationInfo.classList.add('hidden'); if (isZoomedIn) { instructionText.textContent = "Click the marker again to zoom out."; const p = new THREE.Vector3(); targetObject.getWorldPosition(p); cameraTargetPosition.copy(p.normalize().multiplyScalar(5)); selectedLocationName = locationName; locationNameUI.textContent = locationName; } else { instructionText.textContent = "Drag the globe to explore and click a marker to select a destination."; cameraTargetPosition.copy(originalCameraPosition); selectedLocationName = ''; } }
+
+        // --- Main Loop & Resize ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if (globe && !isDragging && !isZooming && !isZoomedIn) { globe.rotation.y += 0.001; }
+            if (stars) { stars.rotation.y += 0.0001; }
+            if (isZooming) {
+                camera.position.lerp(cameraTargetPosition, 0.05);
+                camera.lookAt(scene.position);
+                if (camera.position.distanceTo(cameraTargetPosition) < 0.01) {
+                    isZooming = false;
+                    camera.position.copy(cameraTargetPosition);
+                    if (isZoomedIn) { locationInfo.classList.remove('hidden'); }
+                }
+            }
+            renderer.render(scene, camera);
+        }
+        function onWindowResize() { const w = container.clientWidth, h = container.clientHeight; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h); }
+
+        window.onload = function() { try { init(); animate(); } catch (e) { console.error("Three.js initialization failed:", e); } };
+    </script>
 </body>
 </html>
+
